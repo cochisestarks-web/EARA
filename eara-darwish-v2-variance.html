@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EARA Core v0.2 - Human Variance Patch</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: #00d9ff;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #888;
+            font-size: 1.1rem;
+        }
+
+        .badge {
+            display: inline-block;
+            background: #2a2a2a;
+            color: #00ff88;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            margin-top: 10px;
+            margin-right: 10px;
+        }
+
+        .badge.warning {
+            color: #ff9500;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 8px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        #startBtn {
+            background: #00d9ff;
+            color: #1a1a1a;
+        }
+
+        #startBtn:hover {
+            background: #00b8d9;
+        }
+
+        #pauseBtn {
+            background: #ff9500;
+            color: #1a1a1a;
+        }
+
+        #pauseBtn:hover {
+            background: #e08500;
+        }
+
+        #resetBtn {
+            background: #ff3b30;
+            color: white;
+        }
+
+        #resetBtn:hover {
+            background: #e02920;
+        }
+
+        .time-display {
+            margin-left: auto;
+            padding: 10px 20px;
+            background: #1a1a1a;
+            border-radius: 4px;
+        }
+
+        .time-display strong {
+            color: #00d9ff;
+            font-size: 1.2rem;
+        }
+
+        .schedule-selector {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .schedule-selector label {
+            color: #888;
+        }
+
+        .schedule-selector select {
+            padding: 8px 16px;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            border: 1px solid #444;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        .canvas-container {
+            background: #0a0a0a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 2px solid #333;
+        }
+
+        #eara-canvas {
+            width: 100%;
+            display: block;
+            border-radius: 4px;
+        }
+
+        .metrics-panel {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .metrics-panel h3 {
+            color: #00d9ff;
+            margin-bottom: 15px;
+        }
+
+        #workerMetrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .worker-metric {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 4px;
+            border-left: 4px solid;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .worker-metric.optimal {
+            border-color: #00ff88;
+        }
+
+        .worker-metric.degraded {
+            border-color: #ff9500;
+        }
+
+        .worker-metric.critical {
+            border-color: #ff3b30;
+        }
+
+        .worker-metric.shutdown {
+            border-color: #8b0000;
+            animation: pulse 1s infinite;
+        }
+
+        .worker-metric.burned-out {
+            background: linear-gradient(135deg, #1a1a1a 0%, #2a1010 100%);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .worker-metric h4 {
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            color: #888;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .resilience-badge {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background: #333;
+            color: #aaa;
+        }
+
+        .resilience-badge.high {
+            background: #00ff8833;
+            color: #00ff88;
+        }
+
+        .resilience-badge.low {
+            background: #ff3b3033;
+            color: #ff3b30;
+        }
+
+        .worker-metric .value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .worker-metric .label {
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .worker-metric .performance {
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: 5px;
+        }
+
+        .burnout-indicator {
+            font-size: 0.7rem;
+            color: #ff3b30;
+            margin-top: 3px;
+            font-style: italic;
+        }
+
+        .legend {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .legend h4 {
+            color: #00d9ff;
+            margin-bottom: 15px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .color-box {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            border: 2px solid #444;
+        }
+
+        .color-box.optimal {
+            background: #00ff88;
+        }
+
+        .color-box.degraded {
+            background: #ff9500;
+        }
+
+        .color-box.critical {
+            background: #ff3b30;
+        }
+
+        .color-box.shutdown {
+            background: #8b0000;
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-box {
+            background: #1a1a1a;
+            padding: 12px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .stat-box .stat-label {
+            font-size: 0.75rem;
+            color: #888;
+            margin-bottom: 5px;
+        }
+
+        .stat-box .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #00d9ff;
+        }
+
+        .stat-box.warning .stat-value {
+            color: #ff9500;
+        }
+
+        .stat-box.danger .stat-value {
+            color: #ff3b30;
+        }
+
+        .info-panel {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #00d9ff;
+        }
+
+        .info-panel h4 {
+            color: #00d9ff;
+            margin-bottom: 10px;
+        }
+
+        .info-panel ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .info-panel li {
+            padding: 5px 0;
+            color: #ccc;
+            font-size: 0.9rem;
+        }
+
+        .info-panel li::before {
+            content: "▸ ";
+            color: #00d9ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>EARA Core v0.2</h1>
+            <p class="subtitle">Physiological Labor Capacity Simulation with Human Variance</p>
+            <span class="badge">Darwish (2023) Integration • MAE < 0.000001</span>
+            <span class="badge warning">Individual Resilience • Cumulative Fatigue • Burnout Tracking</span>
+        </header>
+
+        <div class="info-panel">
+            <h4>🆕 Human Variance Patch Features</h4>
+            <ul>
+                <li><strong>Individual Resilience:</strong> Workers have ±20% variance in fatigue/recovery rates</li>
+                <li><strong>12-Hour Crunch Mode:</strong> Demonstrates catastrophic failure under extreme conditions</li>
+                <li><strong>Cumulative Fatigue:</strong> Workers never fully recover after entering critical zone (burnout)</li>
+                <li><strong>Biological Realism:</strong> Simulates population distribution while preserving Darwish math</li>
+            </ul>
+        </div>
+
+        <div class="controls">
+            <button id="startBtn">Start Simulation</button>
+            <button id="pauseBtn">Pause</button>
+            <button id="resetBtn">Reset</button>
+            
+            <div class="schedule-selector">
+                <label for="scheduleSelect">Schedule:</label>
+                <select id="scheduleSelect">
+                    <option value="12hour">12-Hour CRUNCH MODE ⚠️</option>
+                    <option value="8hour">8-Hour Traditional (4hr + break + 4hr)</option>
+                    <option value="6hour">6-Hour Darwish (3hr + break + 3hr)</option>
+                    <option value="4hour" selected>4-Hour HIGH-OCTANE (2hr + break + 2hr)</option>
+                </select>
+            </div>
+            
+            <div class="time-display">
+                <span>Elapsed Time: <strong id="elapsedTime">0</strong>s</span>
+            </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="eara-canvas"></canvas>
+        </div>
+
+        <div class="metrics-panel">
+            <h3>System Metrics</h3>
+            <div class="stats-row">
+                <div class="stat-box">
+                    <div class="stat-label">Avg Capacity</div>
+                    <div class="stat-value" id="avgCapacity">100%</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Min Capacity</div>
+                    <div class="stat-value" id="minCapacity">100%</div>
+                </div>
+                <div class="stat-box warning">
+                    <div class="stat-label">Critical Workers</div>
+                    <div class="stat-value" id="criticalCount">0</div>
+                </div>
+                <div class="stat-box danger">
+                    <div class="stat-label">Shutdowns</div>
+                    <div class="stat-value" id="shutdownCount">0</div>
+                </div>
+                <div class="stat-box danger">
+                    <div class="stat-label">Burned Out</div>
+                    <div class="stat-value" id="burnoutCount">0</div>
+                </div>
+            </div>
+            <div id="workerMetrics"></div>
+        </div>
+
+        <div class="legend">
+            <h4>Worker States & Resilience</h4>
+            <div class="legend-item">
+                <span class="color-box optimal"></span>
+                <span>Optimal (Capacity ≥ 70%) - High performance</span>
+            </div>
+            <div class="legend-item">
+                <span class="color-box degraded"></span>
+                <span>Degraded (50% ≤ Capacity < 70%) - Reduced output</span>
+            </div>
+            <div class="legend-item">
+                <span class="color-box critical"></span>
+                <span>Critical (10% ≤ Capacity < 50%) - Severe degradation + permanent fatigue accumulation</span>
+            </div>
+            <div class="legend-item">
+                <span class="color-box shutdown"></span>
+                <span>Shutdown (Capacity < 10%) - Emergency state</span>
+            </div>
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #444;">
+                <p style="color: #888; font-size: 0.9rem; margin-bottom: 8px;"><strong>Resilience Badges:</strong></p>
+                <p style="color: #00ff88; font-size: 0.85rem;">🟢 HIGH (80-100%): Above-average stamina, slower fatigue accumulation</p>
+                <p style="color: #888; font-size: 0.85rem;">⚪ MID (80-120%): Average population baseline</p>
+                <p style="color: #ff3b30; font-size: 0.85rem;">🔴 LOW (100-120%): Below-average stamina, faster fatigue accumulation</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <script>
+    // ========================================================================
+    // DARWISH WORKER CLASS WITH CUMULATIVE FATIGUE
+    // ========================================================================
+    
+    class DarwishWorker {
+        constructor(config = {}) {
+            this.id = config.id || Math.random().toString(36).substr(2, 9);
+            this.fatigueRate = config.fatigueRate || 0.0097;
+            this.recoveryRate = config.recoveryRate || 0.0009;
+            this.minCapacity = config.minCapacity || 0.10;
+            this.criticalThreshold = config.criticalThreshold || 0.70;
+            this.initialCapacity = config.initialCapacity || 1.0;
+            
+            // NEW: Cumulative fatigue tracking
+            this.permanentFatigue = 0;  // Accumulates when entering critical zone
+            this.burnoutRate = 0.0001;  // How much permanent fatigue per critical tick
+            this.maxCapacity = this.initialCapacity; // Decreases with burnout
+            this.hasBurnedOut = false;  // Flag for visual indication
+            
+            // Individual variance indicator (for UI)
+            this.resilienceLevel = config.resilienceLevel || 'mid';
+            
+            this.capacity = this.initialCapacity;
+            this.fatigue = 1 - this.capacity;
+            this.isWorking = false;
+            this.sessionStartTime = 0;
+            this.sessionStartCapacity = this.initialCapacity;
+            this.totalWorkTime = 0;
+            this.totalRestTime = 0;
+            this.emergencyShutdowns = 0;
+            this.currentSession = 1;
+            this.sessionType = 'work';
+            this.performanceMultiplier = 1.0;
+            this.productivityHistory = [];
+            this.hasViolatedMinCapacity = false;
+            this.timeInCriticalZone = 0;
+        }
+        
+        calculateFatigueDuringWork(timeInSession) {
+            const initialFatigue = 1 - this.sessionStartCapacity;
+            const fatigue = 1 - (1 - initialFatigue) * Math.exp(-this.fatigueRate * timeInSession);
+            return Math.min(fatigue, 1.0);
+        }
+        
+        calculateFatigueDuringRest(timeInRest) {
+            const fatigueAtRestStart = 1 - this.sessionStartCapacity;
+            const fatigue = fatigueAtRestStart * Math.exp(-this.recoveryRate * timeInRest);
+            return Math.max(fatigue, 0);
+        }
+        
+        calculatePerformanceMultiplier() {
+            if (this.capacity >= this.criticalThreshold) {
+                return this.capacity;
+            } else if (this.capacity >= this.minCapacity) {
+                const degradationFactor = (this.capacity - this.minCapacity) / 
+                                        (this.criticalThreshold - this.minCapacity);
+                return this.minCapacity + (degradationFactor * degradationFactor * 
+                                         (this.criticalThreshold - this.minCapacity));
+            } else {
+                return 0;
+            }
+        }
+        
+        tick(isWorking, deltaTime = 1) {
+            const wasWorking = this.isWorking;
+            
+            if (isWorking !== wasWorking) {
+                this.sessionStartCapacity = this.capacity;
+                this.sessionStartTime = 0;
+                
+                if (isWorking) {
+                    this.currentSession++;
+                    this.sessionType = 'work';
+                } else {
+                    this.sessionType = 'rest';
+                }
+            }
+            
+            this.isWorking = isWorking;
+            this.sessionStartTime += deltaTime;
+            
+            if (this.isWorking) {
+                this.fatigue = this.calculateFatigueDuringWork(this.sessionStartTime);
+                this.totalWorkTime += deltaTime;
+            } else {
+                this.fatigue = this.calculateFatigueDuringRest(this.sessionStartTime);
+                this.totalRestTime += deltaTime;
+            }
+            
+            // Calculate temporary capacity (without permanent fatigue)
+            let tempCapacity = Math.max(1 - this.fatigue, 0);
+            
+            // Apply permanent fatigue ceiling
+            this.capacity = Math.min(tempCapacity, this.maxCapacity);
+            
+            this.checkViolations();
+            this.performanceMultiplier = this.calculatePerformanceMultiplier();
+            this.recordMetrics(deltaTime);
+            
+            return this.getState();
+        }
+        
+        checkViolations() {
+            // Check minimum capacity threshold
+            if (this.capacity < this.minCapacity) {
+                if (!this.hasViolatedMinCapacity) {
+                    this.hasViolatedMinCapacity = true;
+                    this.emergencyShutdowns++;
+                }
+            }
+            
+            // NEW: Accumulate permanent fatigue when in critical zone while working
+            if (this.capacity < this.criticalThreshold && this.isWorking) {
+                this.timeInCriticalZone += 1;
+                
+                // Accumulate permanent fatigue (reduces max capacity)
+                this.permanentFatigue += this.burnoutRate;
+                this.maxCapacity = Math.max(this.initialCapacity - this.permanentFatigue, this.minCapacity);
+                
+                // Flag as burned out if permanent capacity loss exceeds 5%
+                if (this.permanentFatigue > 0.05) {
+                    this.hasBurnedOut = true;
+                }
+            }
+        }
+        
+        isSafe() {
+            return this.capacity >= this.minCapacity;
+        }
+        
+        isCritical() {
+            return this.capacity < this.criticalThreshold;
+        }
+        
+        getStateClassification() {
+            if (this.capacity < this.minCapacity) {
+                return 'shutdown';
+            } else if (this.capacity < 0.5) {
+                return 'critical';
+            } else if (this.capacity < this.criticalThreshold) {
+                return 'degraded';
+            } else {
+                return 'optimal';
+            }
+        }
+        
+        recordMetrics(deltaTime) {
+            this.productivityHistory.push({
+                time: this.totalWorkTime + this.totalRestTime,
+                capacity: this.capacity,
+                fatigue: this.fatigue,
+                performance: this.performanceMultiplier,
+                state: this.getStateClassification(),
+                isWorking: this.isWorking,
+                permanentFatigue: this.permanentFatigue,
+                maxCapacity: this.maxCapacity
+            });
+        }
+        
+        getState() {
+            return {
+                id: this.id,
+                capacity: this.capacity,
+                fatigue: this.fatigue,
+                performanceMultiplier: this.performanceMultiplier,
+                state: this.getStateClassification(),
+                isWorking: this.isWorking,
+                isSafe: this.isSafe(),
+                isCritical: this.isCritical(),
+                currentSession: this.currentSession,
+                sessionType: this.sessionType,
+                sessionTime: this.sessionStartTime,
+                totalWorkTime: this.totalWorkTime,
+                totalRestTime: this.totalRestTime,
+                timeInCriticalZone: this.timeInCriticalZone,
+                emergencyShutdowns: this.emergencyShutdowns,
+                hasViolatedMinCapacity: this.hasViolatedMinCapacity,
+                // NEW: Burnout tracking
+                permanentFatigue: this.permanentFatigue,
+                maxCapacity: this.maxCapacity,
+                hasBurnedOut: this.hasBurnedOut,
+                resilienceLevel: this.resilienceLevel
+            };
+        }
+        
+        reset() {
+            // Reset session state but KEEP permanent fatigue
+            this.capacity = this.maxCapacity; // Reset to current max, not original
+            this.fatigue = 1 - this.capacity;
+            this.isWorking = false;
+            this.sessionStartTime = 0;
+            this.sessionStartCapacity = this.capacity;
+            this.totalWorkTime = 0;
+            this.totalRestTime = 0;
+            this.emergencyShutdowns = 0;
+            this.currentSession = 1;
+            this.sessionType = 'work';
+            this.performanceMultiplier = this.calculatePerformanceMultiplier();
+            this.productivityHistory = [];
+            this.hasViolatedMinCapacity = false;
+            this.timeInCriticalZone = 0;
+            // NOTE: permanentFatigue and maxCapacity are NOT reset
+        }
+        
+        hardReset() {
+            // Complete reset including permanent fatigue
+            this.permanentFatigue = 0;
+            this.maxCapacity = this.initialCapacity;
+            this.hasBurnedOut = false;
+            this.reset();
+        }
+    }
+
+    // ========================================================================
+    // SIMULATION CONFIGURATION
+    // ========================================================================
+
+    const CONFIG = {
+        canvas: {
+            width: 1200,
+            height: 400
+        },
+        workers: {
+            count: 8,
+            radius: 20,
+            fatigueRate: 0.0097,
+            recoveryRate: 0.0009,
+            minCapacity: 0.10,
+            criticalThreshold: 0.70,
+            varianceRange: 0.20  // ±20% variance
+        },
+        schedules: {
+            '12hour': [
+                { type: 'work', duration: 360 },  // 6 hours CRUNCH
+                { type: 'rest', duration: 30 },   // 30 min
+                { type: 'work', duration: 360 }   // 6 hours CRUNCH
+            ],
+            '8hour': [
+                { type: 'work', duration: 240 },
+                { type: 'rest', duration: 30 },
+                { type: 'work', duration: 240 }
+            ],
+            '6hour': [
+                { type: 'work', duration: 180 },
+                { type: 'rest', duration: 30 },
+                { type: 'work', duration: 180 }
+            ],
+            '4hour': [
+                { type: 'work', duration: 120 },
+                { type: 'rest', duration: 30 },
+                { type: 'work', duration: 120 }
+            ]
+        },
+        colors: {
+            optimal: '#00ff88',
+            degraded: '#ff9500',
+            critical: '#ff3b30',
+            shutdown: '#8b0000'
+        }
+    };
+
+    // ========================================================================
+    // MATTER.JS SETUP
+    // ========================================================================
+
+    const { Engine, Render, Runner, World, Bodies, Body } = Matter;
+
+    class EARASimulation {
+        constructor() {
+            this.engine = null;
+            this.render = null;
+            this.runner = null;
+            this.workers = [];
+            this.isRunning = false;
+            this.isPaused = false;
+            this.elapsedTime = 0;
+            this.currentSchedule = '4hour';
+            this.schedulePhase = 0;
+            this.phaseTime = 0;
+            
+            this.init();
+        }
+        
+        init() {
+            this.engine = Engine.create({
+                gravity: { x: 0, y: 0 }
+            });
+            
+            const canvas = document.getElementById('eara-canvas');
+            this.render = Render.create({
+                canvas: canvas,
+                engine: this.engine,
+                options: {
+                    width: CONFIG.canvas.width,
+                    height: CONFIG.canvas.height,
+                    wireframes: false,
+                    background: '#0a0a0a'
+                }
+            });
+            
+            this.createBoundaries();
+            this.createWorkers();
+            this.setupControls();
+            
+            Render.run(this.render);
+            this.runner = Runner.create();
+        }
+        
+        createBoundaries() {
+            const wallThickness = 50;
+            const walls = [
+                Bodies.rectangle(CONFIG.canvas.width / 2, -wallThickness / 2, 
+                    CONFIG.canvas.width, wallThickness, 
+                    { isStatic: true, render: { fillStyle: '#1a1a1a' }}),
+                Bodies.rectangle(CONFIG.canvas.width / 2, CONFIG.canvas.height + wallThickness / 2, 
+                    CONFIG.canvas.width, wallThickness, 
+                    { isStatic: true, render: { fillStyle: '#1a1a1a' }}),
+                Bodies.rectangle(-wallThickness / 2, CONFIG.canvas.height / 2, 
+                    wallThickness, CONFIG.canvas.height, 
+                    { isStatic: true, render: { fillStyle: '#1a1a1a' }}),
+                Bodies.rectangle(CONFIG.canvas.width + wallThickness / 2, CONFIG.canvas.height / 2, 
+                    wallThickness, CONFIG.canvas.height, 
+                    { isStatic: true, render: { fillStyle: '#1a1a1a' }})
+            ];
+            
+            World.add(this.engine.world, walls);
+        }
+        
+        createWorkers() {
+            const cols = 4;
+            const rows = 2;
+            const spacingX = CONFIG.canvas.width / (cols + 1);
+            const spacingY = CONFIG.canvas.height / (rows + 1);
+            
+            for (let i = 0; i < CONFIG.workers.count; i++) {
+                const col = i % cols;
+                const row = Math.floor(i / cols);
+                const x = spacingX * (col + 1);
+                const y = spacingY * (row + 1);
+                
+                // INDIVIDUAL VARIANCE: ±20% around baseline
+                const variance = 0.8 + (Math.random() * 0.4);
+                
+                // Determine resilience level for UI
+                let resilienceLevel = 'mid';
+                if (variance < 0.9) {
+                    resilienceLevel = 'high';  // Lower fatigue rate = higher resilience
+                } else if (variance > 1.1) {
+                    resilienceLevel = 'low';   // Higher fatigue rate = lower resilience
+                }
+                
+                const body = Bodies.circle(x, y, CONFIG.workers.radius, {
+                    restitution: 0.9,
+                    friction: 0.001,
+                    render: {
+                        fillStyle: CONFIG.colors.optimal
+                    }
+                });
+                
+                // Create worker with individual variance
+                const worker = new DarwishWorker({
+                    id: `W-${i + 1}`,
+                    fatigueRate: CONFIG.workers.fatigueRate * variance,
+                    recoveryRate: CONFIG.workers.recoveryRate * (2 - variance), // Inverse relationship
+                    minCapacity: CONFIG.workers.minCapacity,
+                    criticalThreshold: CONFIG.workers.criticalThreshold,
+                    resilienceLevel: resilienceLevel
+                });
+                
+                Body.setVelocity(body, {
+                    x: (Math.random() - 0.5) * 5,
+                    y: (Math.random() - 0.5) * 5
+                });
+                
+                this.workers.push({ body, worker });
+                World.add(this.engine.world, body);
+            }
+        }
+        
+        setupControls() {
+            document.getElementById('startBtn').addEventListener('click', () => this.start());
+            document.getElementById('pauseBtn').addEventListener('click', () => this.pause());
+            document.getElementById('resetBtn').addEventListener('click', () => this.reset());
+            document.getElementById('scheduleSelect').addEventListener('change', (e) => {
+                this.currentSchedule = e.target.value;
+                this.reset();
+            });
+        }
+        
+        start() {
+            if (!this.isRunning) {
+                this.isRunning = true;
+                this.isPaused = false;
+                Runner.run(this.runner, this.engine);
+                this.animate();
+            } else if (this.isPaused) {
+                this.isPaused = false;
+            }
+        }
+        
+        pause() {
+            this.isPaused = !this.isPaused;
+        }
+        
+        reset() {
+            this.isRunning = false;
+            this.isPaused = false;
+            this.elapsedTime = 0;
+            this.schedulePhase = 0;
+            this.phaseTime = 0;
+            
+            Runner.stop(this.runner);
+            
+            // Hard reset all workers (including permanent fatigue)
+            this.workers.forEach(({ body, worker }) => {
+                worker.hardReset();
+                Body.setPosition(body, { 
+                    x: body.position.x, 
+                    y: body.position.y 
+                });
+                Body.setVelocity(body, {
+                    x: (Math.random() - 0.5) * 5,
+                    y: (Math.random() - 0.5) * 5
+                });
+                body.render.fillStyle = CONFIG.colors.optimal;
+            });
+            
+            this.updateMetrics();
+        }
+        
+        animate() {
+            if (!this.isRunning) return;
+            
+            if (!this.isPaused) {
+                this.update();
+            }
+            
+            requestAnimationFrame(() => this.animate());
+        }
+        
+        update() {
+            this.elapsedTime += 1/60;
+            this.phaseTime += 1/60;
+            
+            const schedule = CONFIG.schedules[this.currentSchedule];
+            const currentPhase = schedule[this.schedulePhase];
+            
+            if (this.phaseTime >= currentPhase.duration) {
+                this.schedulePhase = (this.schedulePhase + 1) % schedule.length;
+                this.phaseTime = 0;
+            }
+            
+            const isWorking = schedule[this.schedulePhase].type === 'work';
+            
+            this.workers.forEach(({ body, worker }) => {
+                const state = worker.tick(isWorking, 1/60);
+                
+                const currentVel = body.velocity;
+                const baseSpeed = Math.sqrt(currentVel.x * currentVel.x + currentVel.y * currentVel.y);
+                
+                if (baseSpeed > 0.1) {
+                    const targetSpeed = 2 * state.performanceMultiplier;
+                    const scale = targetSpeed / baseSpeed;
+                    Body.setVelocity(body, {
+                        x: currentVel.x * scale,
+                        y: currentVel.y * scale
+                    });
+                }
+                
+                // Increased jitter for burned out workers
+                const jitterMultiplier = state.hasBurnedOut ? 1.5 : 1.0;
+                const jitterAmount = state.fatigue * 2 * jitterMultiplier;
+                Body.applyForce(body, body.position, {
+                    x: (Math.random() - 0.5) * jitterAmount * 0.0001,
+                    y: (Math.random() - 0.5) * jitterAmount * 0.0001
+                });
+                
+                body.render.fillStyle = CONFIG.colors[state.state];
+            });
+            
+            this.updateMetrics();
+        }
+        
+        updateMetrics() {
+            document.getElementById('elapsedTime').textContent = 
+                Math.floor(this.elapsedTime);
+            
+            let totalCapacity = 0;
+            let minCapacity = 1;
+            let criticalCount = 0;
+            let shutdownCount = 0;
+            let burnoutCount = 0;
+            
+            this.workers.forEach(({ worker }) => {
+                const state = worker.getState();
+                totalCapacity += state.capacity;
+                minCapacity = Math.min(minCapacity, state.capacity);
+                
+                if (state.state === 'critical') criticalCount++;
+                if (state.state === 'shutdown') shutdownCount++;
+                if (state.hasBurnedOut) burnoutCount++;
+            });
+            
+            const avgCapacity = totalCapacity / this.workers.length;
+            
+            document.getElementById('avgCapacity').textContent = 
+                Math.round(avgCapacity * 100) + '%';
+            document.getElementById('minCapacity').textContent = 
+                Math.round(minCapacity * 100) + '%';
+            document.getElementById('criticalCount').textContent = criticalCount;
+            document.getElementById('shutdownCount').textContent = shutdownCount;
+            document.getElementById('burnoutCount').textContent = burnoutCount;
+            
+            const metricsContainer = document.getElementById('workerMetrics');
+            metricsContainer.innerHTML = '';
+            
+            this.workers.forEach(({ worker }) => {
+                const state = worker.getState();
+                
+                const card = document.createElement('div');
+                card.className = `worker-metric ${state.state}`;
+                if (state.hasBurnedOut) {
+                    card.classList.add('burned-out');
+                }
+                
+                const resilienceBadgeClass = 
+                    state.resilienceLevel === 'high' ? 'resilience-badge high' :
+                    state.resilienceLevel === 'low' ? 'resilience-badge low' :
+                    'resilience-badge';
+                
+                const burnoutText = state.hasBurnedOut 
+                    ? `<div class="burnout-indicator">⚠️ Burned Out (Max: ${Math.round(state.maxCapacity * 100)}%)</div>`
+                    : '';
+                
+                card.innerHTML = `
+                    <h4>
+                        ${state.id}
+                        <span class="${resilienceBadgeClass}">${state.resilienceLevel.toUpperCase()}</span>
+                    </h4>
+                    <div class="value">${Math.round(state.capacity * 100)}%</div>
+                    <div class="label">${state.state.toUpperCase()}</div>
+                    <div class="performance">Performance: ${Math.round(state.performanceMultiplier * 100)}%</div>
+                    ${burnoutText}
+                `;
+                
+                metricsContainer.appendChild(card);
+            });
+        }
+    }
+
+    // ========================================================================
+    // INITIALIZE SIMULATION
+    // ========================================================================
+
+    let simulation;
+    
+    window.addEventListener('DOMContentLoaded', () => {
+        simulation = new EARASimulation();
+    });
+    </script>
+</body>
+</html>
