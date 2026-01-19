@@ -1,0 +1,2110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EARA Core v0.4 Phase 1 - Schedule Parser + Circadian</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: #00d9ff;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #888;
+            font-size: 1.1rem;
+        }
+
+        .badge {
+            display: inline-block;
+            background: #2a2a2a;
+            color: #00ff88;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            margin-top: 10px;
+            margin-right: 10px;
+        }
+
+        .badge.warning {
+            color: #ff9500;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 8px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        #startBtn {
+            background: #00d9ff;
+            color: #1a1a1a;
+        }
+
+        #startBtn:hover {
+            background: #00b8d9;
+        }
+
+        #pauseBtn {
+            background: #ff9500;
+            color: #1a1a1a;
+        }
+
+        #pauseBtn:hover {
+            background: #e08500;
+        }
+
+        #resetBtn {
+            background: #ff3b30;
+            color: white;
+        }
+
+        #resetBtn:hover {
+            background: #e02920;
+        }
+
+        .time-display {
+            margin-left: auto;
+            padding: 10px 20px;
+            background: #1a1a1a;
+            border-radius: 4px;
+        }
+
+        .time-display strong {
+            color: #00d9ff;
+            font-size: 1.2rem;
+        }
+
+        .schedule-selector {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .schedule-selector label {
+            color: #888;
+        }
+
+        .schedule-selector select {
+            padding: 8px 16px;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            border: 1px solid #444;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        .time-selector {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            min-width: 200px;
+        }
+
+        .time-selector label {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        .time-selector input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+            accent-color: #00d9ff;
+        }
+
+        #startTimeValue {
+            color: #00d9ff;
+            font-weight: bold;
+        }
+
+        .canvas-container {
+            background: #0a0a0a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 2px solid #333;
+        }
+
+        #eara-canvas {
+            width: 100%;
+            display: block;
+            border-radius: 4px;
+        }
+
+        .metrics-panel {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .metrics-panel h3 {
+            color: #00d9ff;
+            margin-bottom: 15px;
+        }
+
+        #workerMetrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .worker-metric {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 4px;
+            border-left: 4px solid;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .worker-metric.optimal {
+            border-color: #00ff88;
+        }
+
+        .worker-metric.degraded {
+            border-color: #ff9500;
+        }
+
+        .worker-metric.critical {
+            border-color: #ff3b30;
+        }
+
+        .worker-metric.shutdown {
+            border-color: #8b0000;
+            animation: pulse 1s infinite;
+        }
+
+        .worker-metric.burned-out {
+            background: linear-gradient(135deg, #1a1a1a 0%, #2a1010 100%);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .worker-metric h4 {
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            color: #888;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .resilience-badge {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background: #333;
+        }
+
+        .resilience-badge.high {
+            background: #00ff8833;
+            color: #00ff88;
+        }
+
+        .resilience-badge.low {
+            background: #ff3b3033;
+            color: #ff3b30;
+        }
+
+        .burnout-indicator {
+            font-size: 0.75rem;
+            color: #ff3b30;
+            margin-top: 5px;
+            padding: 4px;
+            background: #ff3b3022;
+            border-radius: 3px;
+        }
+
+        .worker-metric .value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .worker-metric .label {
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .worker-metric .performance {
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 5px;
+        }
+
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 4px;
+            border-left: 4px solid #00d9ff;
+        }
+
+        .stat-card .stat-label {
+            font-size: 0.85rem;
+            color: #888;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .stat-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #00d9ff;
+        }
+
+        .legend {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .legend h4 {
+            color: #00d9ff;
+            margin-bottom: 15px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .color-box {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            border: 2px solid #444;
+        }
+
+        .color-box.optimal {
+            background: #00ff88;
+        }
+
+        .color-box.degraded {
+            background: #ff9500;
+        }
+
+        .color-box.critical {
+            background: #ff3b30;
+        }
+
+        .color-box.shutdown {
+            background: #8b0000;
+        }
+
+        /* ========================================
+           PHASE 1: Schedule Parser Styles
+           ======================================== */
+
+        .schedule-input-panel {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #00ff88;
+        }
+
+        .schedule-input-panel h4 {
+            color: #00ff88;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .schedule-input-panel textarea {
+            width: 100%;
+            padding: 12px;
+            background: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #e0e0e0;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .schedule-input-panel textarea::placeholder {
+            color: #666;
+        }
+
+        .parse-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .parse-status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .parse-status.success {
+            background: #00ff8822;
+            color: #00ff88;
+            border: 1px solid #00ff8844;
+        }
+
+        .parse-status.error {
+            background: #ff3b3022;
+            color: #ff3b30;
+            border: 1px solid #ff3b3044;
+        }
+
+        .parse-status.warning {
+            background: #ff950022;
+            color: #ff9500;
+            border: 1px solid #ff950044;
+        }
+
+        .parsed-schedule {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            border-left: 4px solid #00d9ff;
+        }
+
+        .parsed-schedule h4 {
+            color: #00d9ff;
+            margin-bottom: 15px;
+        }
+
+        .schedule-breakdown {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+
+        .schedule-day {
+            padding: 10px 0;
+            border-bottom: 1px solid #333;
+        }
+
+        .schedule-day:last-child {
+            border-bottom: none;
+        }
+
+        .schedule-day strong {
+            color: #00d9ff;
+        }
+
+        .schedule-day .time {
+            color: #00ff88;
+            font-family: monospace;
+        }
+
+        .schedule-day .breaks {
+            color: #ff9500;
+            font-size: 0.85rem;
+            margin-top: 4px;
+        }
+
+        .schedule-day .flags {
+            color: #888;
+            font-size: 0.85rem;
+            margin-top: 4px;
+        }
+
+        /* Example schedule buttons */
+        .example-schedules {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .example-btn {
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            background: #1a1a1a;
+            color: #00d9ff;
+            border: 1px solid #00d9ff;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .example-btn:hover {
+            background: #00d9ff22;
+        }
+
+        .confidence-warning {
+            background: #ff950022;
+            color: #ff9500;
+            border: 1px solid #ff950044;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .confidence-warning strong {
+            color: #ff9500;
+        }
+
+        /* PHASE 2: Temporal Debt Tracker Styles */
+        .debt-tracker-panel {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #00d9ff;
+        }
+
+        .debt-tracker-panel h3 {
+            color: #00d9ff;
+            margin-bottom: 15px;
+        }
+
+        .debt-display {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .debt-main {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .debt-value {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #00ff88;
+            margin-bottom: 8px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .debt-value.warning {
+            color: #ff9500;
+        }
+
+        .debt-value.critical {
+            color: #ff3b30;
+            animation: pulse 1s infinite;
+        }
+
+        .debt-label {
+            font-size: 0.9rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .debt-status {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .status-indicator {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .status-indicator.optimal {
+            color: #00ff88;
+        }
+
+        .status-indicator.acceptable {
+            color: #00d9ff;
+        }
+
+        .status-indicator.warning {
+            color: #ff9500;
+        }
+
+        .status-indicator.critical {
+            color: #ff3b30;
+        }
+
+        .status-description {
+            font-size: 0.95rem;
+            color: #aaa;
+            line-height: 1.5;
+        }
+
+        .debt-breakdown {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            padding: 15px;
+            background: #1a1a1a;
+            border-radius: 8px;
+        }
+
+        .debt-metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: #2a2a2a;
+            border-radius: 4px;
+        }
+
+        .metric-label {
+            font-size: 0.9rem;
+            color: #888;
+        }
+
+        .metric-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #00d9ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>EARA Core v0.4 Phase 1</h1>
+            <p class="subtitle">Physiological Labor Capacity + Natural Language Schedule Parser</p>
+            <div>
+                <span class="badge">Circadian Integration ✓</span>
+                <span class="badge">Risk Translation ✓</span>
+                <span class="badge warning">Schedule Parser (NEW)</span>
+            </div>
+        </header>
+
+        <!-- ========================================
+             PHASE 1: Schedule Parser UI
+             ======================================== -->
+
+        <div class="schedule-input-panel">
+            <h4>🗓️ Paste Your Schedule</h4>
+            <textarea 
+                id="scheduleInput" 
+                placeholder="Example:
+Mon: 9am-7pm (1hr lunch at noon)
+Tue: Flex 10-8 with breaks
+Wed: Off but emails/calls
+Thu: 9-5 normal
+Fri: Night shift 10pm-6am"
+                rows="6"
+            ></textarea>
+            
+            <div class="example-schedules">
+                <button class="example-btn" id="example1">📋 Standard 9-5 (M-F)</button>
+                <button class="example-btn" id="example2">🌅 Early Shift (4am start)</button>
+                <button class="example-btn" id="example3">🌙 Night Shift (10pm-6am)</button>
+            </div>
+            
+            <div class="parse-controls">
+                <button id="parseBtn" style="background: #00ff88; color: #1a1a1a;">
+                    Parse & Load Schedule
+                </button>
+                
+                <button id="clearScheduleBtn" style="background: #666; color: white;">
+                    Clear
+                </button>
+                
+                <label style="display: flex; align-items: center; gap: 8px; color: #888; font-size: 0.9rem;">
+                    <input type="checkbox" id="useLLMParse">
+                    <span>Use LLM parsing (requires local Ollama at :52625)</span>
+                </label>
+            </div>
+            
+            <div id="parseStatus" class="parse-status"></div>
+            <div id="confidenceWarning" class="confidence-warning"></div>
+        </div>
+
+        <div id="parsedScheduleDisplay" class="parsed-schedule">
+            <h4>✅ Detected Schedule</h4>
+            <div id="scheduleBreakdown" class="schedule-breakdown"></div>
+            <button id="runCustomSim" style="
+                background: #00d9ff;
+                color: #1a1a1a;
+                padding: 12px 24px;
+                font-size: 1rem;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-weight: 600;
+            ">Run Simulation with This Schedule</button>
+        </div>
+
+        <div class="controls">
+            <button id="startBtn">Start Simulation</button>
+            <button id="pauseBtn">Pause</button>
+            <button id="resetBtn">Reset</button>
+            
+            <div class="schedule-selector">
+                <label>Schedule Type:</label>
+                <select id="scheduleSelect">
+                    <option value="sprint">4hr Sprint (Optimal)</option>
+                    <option value="traditional">8hr Traditional</option>
+                    <option value="stress">6hr Stress Test</option>
+                </select>
+            </div>
+            
+            <div class="time-selector">
+                <label>Start Time: <span id="startTimeValue">08:00</span></label>
+                <input type="range" id="startTimeSlider" min="0" max="23" value="8" step="1">
+            </div>
+            
+            <div class="time-display">
+                <span>Simulation Time: <strong id="elapsedTime">00:00:00 (Day 1)</strong></span>
+            </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="eara-canvas"></canvas>
+        </div>
+
+        <!-- PHASE 2: Temporal Debt Tracker -->
+        <div class="debt-tracker-panel">
+            <h3>⏱️ Temporal Debt Analysis</h3>
+            <div class="debt-display">
+                <div class="debt-main">
+                    <div class="debt-value" id="debtValue">0.0s</div>
+                    <div class="debt-label">Accumulated Debt</div>
+                </div>
+                <div class="debt-status" id="debtStatus">
+                    <span class="status-indicator optimal">✓ OPTIMAL</span>
+                    <div class="status-description">System aligned with biological constraints</div>
+                </div>
+            </div>
+            <div class="debt-breakdown">
+                <div class="debt-metric">
+                    <span class="metric-label">Emergency Shutdowns:</span>
+                    <span class="metric-value" id="emergencyCount">0</span>
+                </div>
+                <div class="debt-metric">
+                    <span class="metric-label">Scheduled Rests:</span>
+                    <span class="metric-value" id="scheduledRestCount">0</span>
+                </div>
+                <div class="debt-metric">
+                    <span class="metric-label">Current Week:</span>
+                    <span class="metric-value" id="currentWeek">1</span>
+                </div>
+                <div class="debt-metric">
+                    <span class="metric-label">Cumulative Weeks:</span>
+                    <span class="metric-value" id="weeksSimulated">1</span>
+                </div>
+            </div>
+            <button id="exportDataBtn" style="
+                background: #00d9ff;
+                color: #1a1a1a;
+                padding: 10px 20px;
+                font-size: 0.95rem;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-weight: 600;
+                margin-top: 15px;
+                width: 100%;
+            ">📊 Export Run Data (CSV)</button>
+        </div>
+
+        <div class="metrics-panel">
+            <h3>System Performance</h3>
+            <div class="summary-stats">
+                <div class="stat-card">
+                    <div class="stat-label">Average Capacity</div>
+                    <div class="stat-value" id="avgCapacity">100%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Minimum Capacity</div>
+                    <div class="stat-value" id="minCapacity">100%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Critical Workers</div>
+                    <div class="stat-value" id="criticalCount">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Emergency Shutdowns</div>
+                    <div class="stat-value" id="shutdownCount">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Burned Out</div>
+                    <div class="stat-value" id="burnoutCount">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="metrics-panel">
+            <h3>Individual Worker Status</h3>
+            <div id="workerMetrics"></div>
+        </div>
+
+        <div class="legend">
+            <h4>Worker States</h4>
+            <div class="legend-item">
+                <span class="color-box optimal"></span>
+                <span>Optimal (γ < 0.3) - High capacity, low risk</span>
+            </div>
+            <div class="legend-item">
+                <span class="color-box degraded"></span>
+                <span>Degraded (0.3 ≤ γ < 0.7) - Declining capacity</span>
+            </div>
+            <div class="legend-item">
+                <span class="color-box critical"></span>
+                <span>Critical (γ ≥ 0.7) - High accident risk</span>
+            </div>
+            <div class="legend-item">
+                <span class="color-box shutdown"></span>
+                <span>Emergency Shutdown (γ ≥ 1.0) - Immediate intervention required</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <script>
+    // ========================================================================
+    // CONFIGURATION
+    // ========================================================================
+    
+    const CONFIG = {
+        canvas: {
+            width: 1200,
+            height: 600
+        },
+        
+        colors: {
+            optimal: '#00ff88',
+            degraded: '#ff9500',
+            critical: '#ff3b30',
+            shutdown: '#8b0000'
+        },
+        
+        schedules: {
+            sprint: [
+                { type: 'work', duration: 240 },  // 4hr work
+                { type: 'rest', duration: 120 }   // 2hr rest
+            ],
+            traditional: [
+                { type: 'work', duration: 480 },  // 8hr work
+                { type: 'rest', duration: 960 }   // 16hr rest
+            ],
+            stress: [
+                { type: 'work', duration: 360 },  // 6hr work (hits entropy wall)
+                { type: 'rest', duration: 1080 }  // 18hr rest
+            ]
+        }
+    };
+
+    // ========================================================================
+    // PHASE 1: SCHEDULE PARSER MODULE
+    // ========================================================================
+    
+    class ScheduleParser {
+        constructor(config = {}) {
+            this.llmEndpoint = config.llmEndpoint || 'http://localhost:52625/v1';
+            this.llmModel = config.llmModel || 'llama3';
+            this.useLLM = config.useLLM || false;
+            this.minConfidence = config.minConfidence || 0.7;
+        }
+        
+        async parse(text) {
+            if (!text || text.trim().length === 0) {
+                return { error: 'Empty input', schedule: [], confidence: 0 };
+            }
+            
+            try {
+                const localResult = this.localParse(text);
+                
+                if (this.useLLM && localResult.confidence < this.minConfidence) {
+                    console.log('Local confidence low, attempting LLM parse...');
+                    return await this.llmParse(text, localResult);
+                }
+                
+                return localResult;
+            } catch (error) {
+                console.error('Parse error:', error);
+                return { 
+                    error: error.message, 
+                    schedule: [], 
+                    confidence: 0,
+                    source: 'error'
+                };
+            }
+        }
+        
+        localParse(text) {
+            const lines = text.split('\n').filter(line => line.trim());
+            const schedule = [];
+            let currentWeek = 1;
+            
+            // IMPROVEMENT #4: Detect week separators
+            const weekPattern = /^week\s*(\d+)/i;
+            
+            lines.forEach((line, index) => {
+                // Check for week separator
+                const weekMatch = line.match(weekPattern);
+                if (weekMatch) {
+                    currentWeek = parseInt(weekMatch[1]);
+                    return; // Skip this line, it's just a label
+                }
+                
+                const dayMatch = this.extractDay(line);
+                
+                // Check if this is an "off" day
+                if (dayMatch && /\b(off|rest|vacation|holiday)\b/i.test(line)) {
+                    // Skip "off" days - they don't need to be in the schedule
+                    return;
+                }
+                
+                const times = this.extractTimes(line);
+                const breaks = this.extractBreaks(line);
+                const flags = this.extractFlags(line);
+                
+                if (dayMatch && times.length >= 2) {
+                    schedule.push({
+                        day: dayMatch,
+                        week: currentWeek,
+                        start: times[0],
+                        end: times[1],
+                        breaks: breaks,
+                        nightShift: flags.nightShift,
+                        flexible: flags.flexible,
+                        offButActive: flags.offButActive,
+                        rawLine: line
+                    });
+                } else if (line.trim().length > 0 && dayMatch) {
+                    // Day found but no times - log warning but don't fail
+                    console.warn(`Could not parse times for line ${index + 1}: "${line}"`);
+                }
+            });
+            
+            const confidence = this.calculateConfidence(schedule, lines.length);
+            
+            // Detect rotating schedule pattern
+            const metadata = this.detectSchedulePattern(schedule);
+            
+            return { 
+                schedule, 
+                confidence, 
+                source: 'local',
+                metadata
+            };
+        }
+        
+        extractDay(line) {
+            const days = {
+                'mon': 'Monday', 'tue': 'Tuesday', 'wed': 'Wednesday',
+                'thu': 'Thursday', 'fri': 'Friday', 'sat': 'Saturday', 'sun': 'Sunday',
+                'monday': 'Monday', 'tuesday': 'Tuesday', 'wednesday': 'Wednesday',
+                'thursday': 'Thursday', 'friday': 'Friday', 'saturday': 'Saturday', 'sunday': 'Sunday'
+            };
+            
+            const lower = line.toLowerCase();
+            for (const [abbr, full] of Object.entries(days)) {
+                const regex = new RegExp(`\\b${abbr}\\b`, 'i');
+                if (regex.test(lower)) return full;
+            }
+            return null;
+        }
+        
+        extractTimes(line) {
+            const times = [];
+            
+            // 12hr format with optional colons: 9am-7pm, 4am-1230pm, 9:30am-5:30pm
+            const pattern12hr = /(\d{1,2})(?::?(\d{2}))?\s*(am|pm)\s*[-—–to]+\s*(\d{1,2})(?::?(\d{2}))?\s*(am|pm)/gi;
+            let match = pattern12hr.exec(line);
+            
+            if (match) {
+                // Handle formats like "1230pm" (12:30pm without colon)
+                let startMin = match[2];
+                let endMin = match[5];
+                
+                // If minutes are 3-4 digits (like "1230"), split them
+                if (startMin && startMin.length > 2) {
+                    startMin = startMin.substring(startMin.length - 2);
+                }
+                if (endMin && endMin.length > 2) {
+                    endMin = endMin.substring(endMin.length - 2);
+                }
+                
+                const start = this.convertTo24Hour(
+                    parseInt(match[1]), 
+                    parseInt(startMin || 0), 
+                    match[3]
+                );
+                const end = this.convertTo24Hour(
+                    parseInt(match[4]), 
+                    parseInt(endMin || 0), 
+                    match[6]
+                );
+                times.push(start, end);
+                return times;
+            }
+            
+            // 24hr format: 09:00-17:00
+            const pattern24hr = /(\d{1,2}):(\d{2})\s*[-—–to]+\s*(\d{1,2}):(\d{2})/g;
+            match = pattern24hr.exec(line);
+            
+            if (match) {
+                times.push(
+                    parseInt(match[1]) + (parseInt(match[2]) / 60),
+                    parseInt(match[3]) + (parseInt(match[4]) / 60)
+                );
+                return times;
+            }
+            
+            // Simple hours: 9-5
+            const patternHours = /(\d{1,2})\s*[-—–to]+\s*(\d{1,2})/g;
+            match = patternHours.exec(line);
+            
+            if (match && times.length === 0) {
+                let start = parseInt(match[1]);
+                let end = parseInt(match[2]);
+                if (end < start) end += 12;
+                times.push(start, end);
+            }
+            
+            return times;
+        }
+        
+        convertTo24Hour(hour, minute, meridiem) {
+            let h = hour;
+            const m = meridiem.toLowerCase();
+            if (m === 'pm' && h !== 12) h += 12;
+            if (m === 'am' && h === 12) h = 0;
+            return h + (minute / 60);
+        }
+        
+        extractBreaks(line) {
+            const breaks = [];
+            
+            // Pattern 1: "1hr lunch at noon" or "30 min break at 10am"
+            const breakPatternWithTime = /(\d+)\s*(hr|hour|min|minute)s?\s+(?:lunch|break)\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/gi;
+            let match;
+            
+            while ((match = breakPatternWithTime.exec(line)) !== null) {
+                const duration = match[2].startsWith('hr') ? parseInt(match[1]) * 60 : parseInt(match[1]);
+                let time = match[5] ? 
+                    this.convertTo24Hour(parseInt(match[3]), parseInt(match[4] || 0), match[5]) :
+                    parseInt(match[3]);
+                breaks.push({ duration, time });
+            }
+            
+            // Pattern 2: "(30 min break)" - no specific time given
+            const breakPatternNoTime = /\((\d+)\s*(hr|hour|min|minute)s?\s+break\)/gi;
+            
+            while ((match = breakPatternNoTime.exec(line)) !== null) {
+                const duration = match[2].startsWith('hr') ? parseInt(match[1]) * 60 : parseInt(match[1]);
+                // No time specified - will be placed in middle of shift by splitIntoBlocks
+                breaks.push({ duration, time: null });
+            }
+            
+            return breaks;
+        }
+        
+        extractFlags(line) {
+            const lower = line.toLowerCase();
+            return {
+                nightShift: lower.includes('night') || lower.includes('overnight') || 
+                           /\d{1,2}\s*pm\s*[-—–]\s*\d{1,2}\s*am/.test(lower),
+                flexible: lower.includes('flex'),
+                offButActive: (lower.includes('off') || lower.includes('rest')) && 
+                             (lower.includes('but') || lower.includes('email') || lower.includes('call'))
+            };
+        }
+        
+        calculateConfidence(schedule, totalLines) {
+            if (schedule.length === 0) return 0;
+            let score = (schedule.length / Math.max(totalLines, 1)) * 0.4;
+            schedule.forEach(day => {
+                let dayScore = 0;
+                if (day.day) dayScore += 0.3;
+                if (day.start !== undefined && day.end !== undefined) dayScore += 0.5;
+                if (day.breaks.length > 0) dayScore += 0.2;
+                score += (dayScore / schedule.length) * 0.6;
+            });
+            return Math.min(score, 1.0);
+        }
+        
+        async llmParse(text, fallbackResult) {
+            // LLM parsing implementation (optional - requires Ollama)
+            // For Phase 1, we'll skip LLM and just use local parsing
+            console.warn('LLM parsing not yet implemented, using local result');
+            return fallbackResult;
+        }
+        
+        detectSchedulePattern(schedule) {
+            if (schedule.length === 0) {
+                return { type: 'empty', weeks: 0 };
+            }
+            
+            // Count unique weeks
+            const weeks = new Set(schedule.map(s => s.week || 1));
+            const weekCount = weeks.size;
+            
+            if (weekCount === 1) {
+                return { 
+                    type: 'single-week', 
+                    weeks: 1,
+                    daysCount: schedule.length 
+                };
+            }
+            
+            // Check if pattern repeats
+            const week1 = schedule.filter(s => (s.week || 1) === 1);
+            const week2 = schedule.filter(s => (s.week || 1) === 2);
+            
+            if (week1.length === week2.length) {
+                // Check if schedules are identical
+                const identical = week1.every((day, idx) => {
+                    const w2Day = week2[idx];
+                    return day.start === w2Day.start && 
+                           day.end === w2Day.end &&
+                           day.day === w2Day.day;
+                });
+                
+                if (identical) {
+                    return { 
+                        type: 'repeating', 
+                        weeks: weekCount,
+                        pattern: 'identical'
+                    };
+                }
+            }
+            
+            return { 
+                type: 'rotating', 
+                weeks: weekCount,
+                pattern: 'varied'
+            };
+        }
+        
+        toWorkerConfigs(parseResult) {
+            const configs = [];
+            
+            parseResult.schedule.forEach((day) => {
+                const shiftDuration = (day.end - day.start) * 60;
+                const breakDuration = day.breaks.reduce((sum, b) => sum + b.duration, 0);
+                const workDuration = shiftDuration - breakDuration;
+                
+                const blocks = this.splitIntoBlocks(day.start, day.end, day.breaks);
+                const earaSchedule = blocks.map(block => ({
+                    type: block.type,
+                    duration: block.duration,
+                    startHour: block.startHour
+                }));
+                
+                configs.push({
+                    day: day.day,
+                    schedule: earaSchedule,
+                    startHour: day.start,
+                    nightShift: day.nightShift,
+                    metadata: {
+                        totalWork: workDuration,
+                        totalBreaks: breakDuration,
+                        totalShift: shiftDuration,
+                        flexible: day.flexible,
+                        offButActive: day.offButActive,
+                        rawLine: day.rawLine
+                    }
+                });
+            });
+            
+            return configs;
+        }
+        
+        splitIntoBlocks(start, end, breaks) {
+            const blocks = [];
+            let currentTime = start;
+            
+            // Separate breaks with times vs without times
+            const breaksWithTime = breaks.filter(b => b.time !== null).sort((a, b) => a.time - b.time);
+            const breaksWithoutTime = breaks.filter(b => b.time === null);
+            
+            // If there are breaks without times, distribute them evenly
+            if (breaksWithoutTime.length > 0) {
+                const totalWorkTime = end - start;
+                const totalBreakDuration = breaksWithoutTime.reduce((sum, b) => sum + b.duration, 0) / 60;
+                const netWorkTime = totalWorkTime - totalBreakDuration;
+                
+                // Place break in the middle of the shift
+                const midPoint = start + (netWorkTime / 2);
+                breaksWithoutTime.forEach(brk => {
+                    breaksWithTime.push({ duration: brk.duration, time: midPoint });
+                });
+                breaksWithTime.sort((a, b) => a.time - b.time);
+            }
+            
+            // Build work/break blocks
+            breaksWithTime.forEach(brk => {
+                if (brk.time > currentTime) {
+                    blocks.push({
+                        type: 'work',
+                        duration: (brk.time - currentTime) * 60,
+                        startHour: currentTime
+                    });
+                }
+                blocks.push({
+                    type: 'rest',
+                    duration: brk.duration,
+                    startHour: brk.time
+                });
+                currentTime = brk.time + (brk.duration / 60);
+            });
+            
+            // Final work block if time remains
+            if (end > currentTime) {
+                blocks.push({
+                    type: 'work',
+                    duration: (end - currentTime) * 60,
+                    startHour: currentTime
+                });
+            }
+            
+            // CRITICAL: Add mandatory rest period after work
+            // Workers need recovery time (accelerated rest = 2x faster recovery)
+            const totalWorkMinutes = blocks
+                .filter(b => b.type === 'work')
+                .reduce((sum, b) => sum + b.duration, 0);
+            
+            // Rest = half of work time (since recovery is 2x faster than fatigue)
+            // For 8.5hr work (510min), need 4.25hr rest (255min) minimum
+            const restDuration = Math.max(240, totalWorkMinutes / 2);
+            
+            blocks.push({
+                type: 'rest',
+                duration: restDuration,
+                startHour: end
+            });
+            
+            return blocks;
+        }
+        
+        formatForDisplay(schedule, metadata) {
+            // Group by week if multi-week schedule
+            const weeks = {};
+            schedule.forEach(day => {
+                const week = day.week || 1;
+                if (!weeks[week]) weeks[week] = [];
+                weeks[week].push(day);
+            });
+            
+            let html = '';
+            
+            // Add pattern description if multi-week
+            if (metadata && metadata.weeks > 1) {
+                html += `<div style="padding: 10px; background: #00d9ff22; border-radius: 4px; margin-bottom: 15px; color: #00d9ff;">
+                    📅 <strong>${metadata.weeks}-Week ${metadata.pattern === 'identical' ? 'Repeating' : 'Rotating'} Schedule</strong>
+                </div>`;
+            }
+            
+            // Display each week
+            Object.keys(weeks).sort().forEach(weekNum => {
+                if (Object.keys(weeks).length > 1) {
+                    html += `<div style="padding: 8px; margin: 10px 0; background: #2a2a2a; border-radius: 4px; color: #00ff88;">
+                        <strong>Week ${weekNum}</strong>
+                    </div>`;
+                }
+                
+                weeks[weekNum].forEach(day => {
+                    const start = this.formatTime(day.start);
+                    const end = this.formatTime(day.end);
+                    const breaks = day.breaks.map(b => 
+                        `${b.duration}min${b.time ? ` at ${this.formatTime(b.time)}` : ''}`
+                    ).join(', ');
+                    
+                    const flags = [];
+                    if (day.nightShift) flags.push('Night Shift');
+                    if (day.flexible) flags.push('Flexible');
+                    if (day.offButActive) flags.push('Off but Active');
+                    
+                    html += `
+                        <div class="schedule-day">
+                            <strong>${day.day}</strong>: <span class="time">${start} - ${end}</span>
+                            ${breaks ? `<div class="breaks">Breaks: ${breaks}</div>` : ''}
+                            ${flags.length > 0 ? `<div class="flags">${flags.join(', ')}</div>` : ''}
+                        </div>
+                    `;
+                });
+            });
+            
+            return html;
+        }
+        
+        formatTime(time) {
+            const hours = Math.floor(time);
+            const minutes = Math.round((time - hours) * 60);
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        }
+    }
+
+    // ========================================================================
+    // DARWISH WORKER CLASS (Circadian + Risk Translation)
+    // ========================================================================
+    
+    class DarwishWorker {
+        constructor(id, resilienceLevel = 'medium') {
+            this.id = id;
+            this.gamma = 0;
+            this.permanentFatigue = 0;
+            this.hasBurnedOut = false;
+            this.maxCapacity = 1.0;
+            this.shutdownCount = 0;
+            
+            this.resilienceLevel = resilienceLevel;
+            this.resilience = {
+                high: { recovery: 0.15, threshold: 0.75 },
+                medium: { recovery: 0.1, threshold: 0.70 },
+                low: { recovery: 0.08, threshold: 0.65 }
+            }[resilienceLevel];
+        }
+        
+        tick(isWorking, deltaSeconds, currentHour) {
+            const deltaMinutes = deltaSeconds / 60;
+            
+            const circadian = this.getCircadianAlertness(currentHour);
+            
+            const fatigueRate = isWorking ? 
+                (0.15 * (1 / circadian)) * deltaMinutes :
+                -this.resilience.recovery * deltaMinutes;
+            
+            this.gamma = Math.max(0, Math.min(1, this.gamma + fatigueRate));
+            
+            // PHASE 2: Track temporal debt on emergency shutdown
+            let debtIncurred = 0;
+            
+            if (this.gamma >= 1.0 && !this.hasBurnedOut) {
+                this.permanentFatigue = Math.min(0.4, this.permanentFatigue + 0.05);
+                this.maxCapacity = Math.max(0.3, this.maxCapacity - 0.05);
+                this.hasBurnedOut = true;
+                this.shutdownCount++;
+                
+                // Emergency shutdown: 5 seconds recovery cost
+                // vs scheduled rest: 2 seconds
+                // Temporal debt = 3 seconds per emergency
+                debtIncurred = 3.0;
+            }
+            
+            if (this.gamma < 0.3 && this.hasBurnedOut) {
+                this.hasBurnedOut = false;
+            }
+            
+            return {
+                state: this.getState(currentHour),
+                debtIncurred: debtIncurred
+            };
+        }
+        
+        getCircadianAlertness(hour) {
+            const peak1 = 10;
+            const peak2 = 20;
+            const trough = 3;
+            
+            const dist1 = Math.abs(hour - peak1);
+            const dist2 = Math.abs(hour - peak2);
+            const distTrough = Math.abs(hour - trough);
+            
+            const minDistPeak = Math.min(dist1, dist2);
+            
+            if (distTrough < 3) {
+                return 0.3 + (distTrough / 3) * 0.4;
+            } else if (minDistPeak < 2) {
+                return 1.0 - (minDistPeak / 2) * 0.1;
+            } else {
+                return 0.7;
+            }
+        }
+        
+        getState(currentHour = 8) {
+            const effectiveGamma = Math.min(1, this.gamma + this.permanentFatigue);
+            const capacity = Math.max(0, this.maxCapacity * (1 - effectiveGamma));
+            
+            let state;
+            if (effectiveGamma >= 1.0) {
+                state = 'shutdown';
+            } else if (effectiveGamma >= 0.7) {
+                state = 'critical';
+            } else if (effectiveGamma >= 0.3) {
+                state = 'degraded';
+            } else {
+                state = 'optimal';
+            }
+            
+            const circadian = this.getCircadianAlertness(currentHour);
+            const accidentRisk = Math.min(1, effectiveGamma * (1 / circadian));
+            const errorProb = Math.min(1, effectiveGamma * 0.8);
+            
+            return {
+                id: this.id,
+                fatigue: this.gamma,
+                permanentFatigue: this.permanentFatigue,
+                capacity: capacity,
+                state: state,
+                performanceMultiplier: capacity,
+                hasBurnedOut: this.hasBurnedOut,
+                maxCapacity: this.maxCapacity,
+                resilienceLevel: this.resilienceLevel,
+                circadianAlertness: circadian,
+                accidentRisk: accidentRisk,
+                errorProb: errorProb,
+                shutdownCount: this.shutdownCount
+            };
+        }
+        
+        hardReset() {
+            this.gamma = 0;
+            this.permanentFatigue = 0;
+            this.hasBurnedOut = false;
+            this.maxCapacity = 1.0;
+            this.shutdownCount = 0;
+        }
+    }
+
+    // ========================================================================
+    // SIMULATION ENGINE
+    // ========================================================================
+    
+    class EARASimulation {
+        constructor() {
+            const { Engine, Render, Runner, World, Bodies, Body } = Matter;
+            
+            this.engine = Engine.create({
+                gravity: { x: 0, y: 0 }
+            });
+            
+            const canvas = document.getElementById('eara-canvas');
+            this.render = Render.create({
+                canvas: canvas,
+                engine: this.engine,
+                options: {
+                    width: CONFIG.canvas.width,
+                    height: CONFIG.canvas.height,
+                    wireframes: false,
+                    background: '#0a0a0a'
+                }
+            });
+            
+            Render.run(this.render);
+            this.runner = Runner.create();
+            
+            // Add boundary walls (Bodies and World already declared in constructor)
+            const walls = [
+                // Top wall
+                Bodies.rectangle(CONFIG.canvas.width / 2, 0, CONFIG.canvas.width, 50, { 
+                    isStatic: true,
+                    render: { fillStyle: '#2a2a2a' }
+                }),
+                // Bottom wall
+                Bodies.rectangle(CONFIG.canvas.width / 2, CONFIG.canvas.height, CONFIG.canvas.width, 50, { 
+                    isStatic: true,
+                    render: { fillStyle: '#2a2a2a' }
+                }),
+                // Left wall
+                Bodies.rectangle(0, CONFIG.canvas.height / 2, 50, CONFIG.canvas.height, { 
+                    isStatic: true,
+                    render: { fillStyle: '#2a2a2a' }
+                }),
+                // Right wall
+                Bodies.rectangle(CONFIG.canvas.width, CONFIG.canvas.height / 2, 50, CONFIG.canvas.height, { 
+                    isStatic: true,
+                    render: { fillStyle: '#2a2a2a' }
+                })
+            ];
+            World.add(this.engine.world, walls);
+            
+            this.workers = [];
+            this.isRunning = false;
+            this.isPaused = false;
+            this.elapsedTime = 0;
+            this.worldTime = 0;
+            this.currentDay = 1;
+            this.currentSchedule = 'sprint';
+            this.schedulePhase = 0;
+            this.phaseTime = 0;
+            this.startHour = 8;
+            this.lastSchedulePhase = -1; // Track phase transitions
+            
+            // PHASE 1: Schedule parser initialization
+            this.parser = new ScheduleParser({
+                llmEndpoint: 'http://localhost:52625/v1',
+                minConfidence: 0.7
+            });
+            this.customSchedule = null;
+            this.customScheduleData = null;
+            this.lastLogTime = -1; // For debug logging
+            
+            // PHASE 2: Temporal debt tracking
+            this.temporalDebt = 0; // Accumulated seconds of debt
+            this.emergencyShutdownCount = 0;
+            this.scheduledRestCount = 0;
+            
+            // PHASE 2: Data export - collect time-series data
+            this.runData = []; // Store {time, debt, avgCapacity, minCapacity, criticalCount, shutdownCount}
+            this.lastDataCapture = -1; // Capture data every N seconds
+            this.dataCaptureInterval = 10; // Capture every 10 sim seconds
+            
+            // PHASE 2: Multi-week cycling
+            this.currentWeekIndex = 0; // Which week we're simulating (0-based)
+            this.weeksSimulated = 1; // Total weeks completed
+            this.weekStartTime = 0; // When current week started
+            this.weekDuration = 0; // Total duration of one week's schedule
+            this.allWeekSchedules = null; // Stores all week configurations for cycling
+            
+            // PERFORMANCE: Throttle UI updates (physics runs at 60fps, UI at 15fps)
+            this.uiFrameCounter = 0;
+            this.uiUpdateEveryNFrames = 4; // Update UI every 4 frames (~15fps)
+            
+            this.createWorkers();
+            this.setupControls();
+            this.updateMetrics(this.startHour);
+        }
+        
+        createWorkers() {
+            const { Bodies, World, Body } = Matter;
+            
+            const resilienceLevels = ['high', 'high', 'medium', 'medium', 'medium', 'medium', 'low', 'low'];
+            
+            for (let i = 0; i < 8; i++) {
+                const x = 150 + (i % 4) * 280;
+                const y = 150 + Math.floor(i / 4) * 280;
+                
+                const body = Bodies.circle(x, y, 30, {
+                    restitution: 0.9,
+                    friction: 0.001,
+                    render: {
+                        fillStyle: CONFIG.colors.optimal
+                    }
+                });
+                
+                Body.setVelocity(body, {
+                    x: (Math.random() - 0.5) * 5,
+                    y: (Math.random() - 0.5) * 5
+                });
+                
+                const worker = new DarwishWorker(`W${i+1}`, resilienceLevels[i]);
+                
+                Body.set(body, {
+                    plugin: {
+                        wrap: {
+                            min: { x: 0, y: 0 },
+                            max: { x: CONFIG.canvas.width, y: CONFIG.canvas.height }
+                        }
+                    }
+                });
+                
+                this.workers.push({ body, worker });
+                World.add(this.engine.world, body);
+            }
+        }
+        
+        setupControls() {
+            document.getElementById('startBtn').addEventListener('click', () => this.start());
+            document.getElementById('pauseBtn').addEventListener('click', () => this.pause());
+            document.getElementById('resetBtn').addEventListener('click', () => this.reset());
+            document.getElementById('scheduleSelect').addEventListener('change', (e) => {
+                this.currentSchedule = e.target.value;
+                this.reset();
+            });
+            
+            const startTimeSlider = document.getElementById('startTimeSlider');
+            const startTimeValue = document.getElementById('startTimeValue');
+            
+            startTimeSlider.addEventListener('input', (e) => {
+                const hour = parseInt(e.target.value);
+                startTimeValue.textContent = hour.toString().padStart(2, '0') + ':00';
+                this.startHour = hour;
+                
+                if (this.isRunning) {
+                    this.reset();
+                }
+            });
+            
+            // PHASE 1: Parser button handlers
+            document.getElementById('parseBtn').addEventListener('click', 
+                () => this.parseSchedule());
+            
+            document.getElementById('clearScheduleBtn').addEventListener('click', () => {
+                document.getElementById('scheduleInput').value = '';
+                document.getElementById('parsedScheduleDisplay').style.display = 'none';
+                document.getElementById('parseStatus').style.display = 'none';
+            });
+            
+            document.getElementById('runCustomSim').addEventListener('click',
+                () => this.runWithCustomSchedule());
+            
+            // PHASE 1 IMPROVEMENTS: Example schedule buttons
+            document.getElementById('example1').addEventListener('click', () => {
+                document.getElementById('scheduleInput').value = 
+`Mon: 9am-5pm (1hr lunch at noon)
+Tue: 9am-5pm (1hr lunch at noon)
+Wed: 9am-5pm (1hr lunch at noon)
+Thu: 9am-5pm (1hr lunch at noon)
+Fri: 9am-5pm (1hr lunch at noon)`;
+            });
+            
+            document.getElementById('example2').addEventListener('click', () => {
+                document.getElementById('scheduleInput').value = 
+`Mon: 4am-12:30pm (30 min break)
+Tue: 4am-12:30pm (30 min break)
+Wed: 4am-12:30pm (30 min break)
+Thu: 4am-12:30pm (30 min break)
+Fri: 4am-12:30pm (30 min break)`;
+            });
+            
+            document.getElementById('example3').addEventListener('click', () => {
+                document.getElementById('scheduleInput').value = 
+`Mon: 10pm-6am (30 min break at 2am)
+Tue: 10pm-6am (30 min break at 2am)
+Wed: 10pm-6am (30 min break at 2am)
+Thu: 10pm-6am (30 min break at 2am)
+Fri: Off`;
+            });
+            
+            // PHASE 2: Export button handler
+            document.getElementById('exportDataBtn').addEventListener('click',
+                () => this.exportRunData());
+        }
+        
+        async parseSchedule() {
+            console.log('🚀 Parse button clicked!');
+            const text = document.getElementById('scheduleInput').value;
+            console.log('📝 Input text:', text);
+            const statusDiv = document.getElementById('parseStatus');
+            const confidenceDiv = document.getElementById('confidenceWarning');
+            
+            // Reset warnings
+            confidenceDiv.style.display = 'none';
+            
+            if (!text.trim()) {
+                statusDiv.className = 'parse-status error';
+                statusDiv.style.display = 'block';
+                statusDiv.textContent = '⚠️ Please enter a schedule. Try clicking an example button above!';
+                return;
+            }
+            
+            statusDiv.className = 'parse-status';
+            statusDiv.style.display = 'block';
+            statusDiv.textContent = '⏳ Parsing...';
+            
+            this.parser.useLLM = document.getElementById('useLLMParse').checked;
+            
+            try {
+                const result = await this.parser.parse(text);
+                
+                if (result.error) {
+                    statusDiv.className = 'parse-status error';
+                    // Better error messages
+                    let errorMsg = '❌ Parse failed: ';
+                    if (result.error.includes('Empty')) {
+                        errorMsg += 'No text entered. Please paste or type a schedule.';
+                    } else {
+                        errorMsg += result.error;
+                    }
+                    statusDiv.textContent = errorMsg;
+                    return;
+                }
+                
+                if (result.schedule.length === 0) {
+                    statusDiv.className = 'parse-status warning';
+                    statusDiv.textContent = '⚠️ No valid schedule detected. Try formats like:\n' +
+                        '• "Mon: 9am-5pm"\n' +
+                        '• "Tue: 4am-1230pm (30 min break)"\n' +
+                        '• Click an example button above!';
+                    return;
+                }
+                
+                statusDiv.className = 'parse-status success';
+                statusDiv.textContent = `✅ Parsed ${result.schedule.length} day(s) - ${Math.round(result.confidence * 100)}% confidence (${result.source})`;
+                
+                // IMPROVEMENT #3: Confidence warning
+                if (result.confidence < 0.7) {
+                    confidenceDiv.style.display = 'block';
+                    confidenceDiv.innerHTML = `<strong>⚠️ Low Confidence (${Math.round(result.confidence * 100)}%)</strong><br>
+Some parts of your schedule may have been misinterpreted. Check the parsed schedule below for accuracy.
+Consider using more explicit formats like "Mon: 9am-5pm" or try an example button.`;
+                }
+                
+                this.displayParsedSchedule(result);
+                this.customSchedule = this.parser.toWorkerConfigs(result);
+                
+                // DEBUG: Log parsed schedule details
+                console.log('📋 Raw parsed schedule:', JSON.stringify(result.schedule, null, 2));
+                console.log('⚙️ Worker configs:', JSON.stringify(this.customSchedule, null, 2));
+                
+            } catch (error) {
+                statusDiv.className = 'parse-status error';
+                // Better error handling
+                let errorMsg = '❌ Parsing error: ';
+                if (error.message.includes('time')) {
+                    errorMsg += 'Could not understand time format. Try "9am-5pm" or "09:00-17:00"';
+                } else if (error.message.includes('day')) {
+                    errorMsg += 'Could not find day names. Make sure to use Mon, Tue, Wed, etc.';
+                } else {
+                    errorMsg += error.message;
+                }
+                statusDiv.textContent = errorMsg;
+            }
+        }
+        
+        displayParsedSchedule(parseResult) {
+            const container = document.getElementById('parsedScheduleDisplay');
+            const breakdown = document.getElementById('scheduleBreakdown');
+            
+            breakdown.innerHTML = this.parser.formatForDisplay(
+                parseResult.schedule, 
+                parseResult.metadata
+            );
+            container.style.display = 'block';
+        }
+        
+        runWithCustomSchedule() {
+            if (!this.customSchedule || this.customSchedule.length === 0) {
+                alert('No custom schedule loaded. Please parse a schedule first.');
+                return;
+            }
+            
+            this.reset();
+            
+            // PHASE 2: Store all weeks for cycling
+            this.allWeekSchedules = this.customSchedule;
+            this.currentWeekIndex = 0;
+            
+            // Load first week
+            const dayConfig = this.customSchedule[0];
+            this.currentSchedule = 'custom';
+            this.customScheduleData = dayConfig.schedule;
+            this.startHour = dayConfig.startHour || 8;
+            
+            // Calculate total duration of this week's schedule
+            this.weekDuration = this.customScheduleData.reduce((sum, phase) => sum + phase.duration, 0);
+            this.weekStartTime = 0;
+            
+            document.getElementById('startTimeSlider').value = this.startHour;
+            document.getElementById('startTimeValue').textContent = 
+                this.startHour.toString().padStart(2, '0') + ':00';
+            
+            this.start();
+        }
+        
+        start() {
+            if (!this.isRunning) {
+                this.isRunning = true;
+                this.isPaused = false;
+                Matter.Runner.run(this.runner, this.engine);
+                this.animate();
+            } else if (this.isPaused) {
+                this.isPaused = false;
+            }
+        }
+        
+        pause() {
+            this.isPaused = !this.isPaused;
+        }
+        
+        reset() {
+            this.isRunning = false;
+            this.isPaused = false;
+            this.elapsedTime = 0;
+            this.worldTime = 0;
+            this.currentDay = 1;
+            this.schedulePhase = 0;
+            this.phaseTime = 0;
+            this.lastSchedulePhase = -1;
+            
+            // PHASE 2: Reset debt tracking
+            this.temporalDebt = 0;
+            this.emergencyShutdownCount = 0;
+            this.scheduledRestCount = 0;
+            this.currentWeekIndex = 0;
+            this.weeksSimulated = 1;
+            this.runData = []; // Clear exported data
+            this.lastDataCapture = -1;
+            
+            Matter.Runner.stop(this.runner);
+            
+            this.workers.forEach(({ body, worker }) => {
+                worker.hardReset();
+                Matter.Body.setPosition(body, { 
+                    x: body.position.x, 
+                    y: body.position.y 
+                });
+                Matter.Body.setVelocity(body, {
+                    x: (Math.random() - 0.5) * 5,
+                    y: (Math.random() - 0.5) * 5
+                });
+                body.render.fillStyle = CONFIG.colors.optimal;
+            });
+            
+            this.updateMetrics(this.startHour);
+        }
+        
+        animate() {
+            if (!this.isRunning) return;
+            
+            if (!this.isPaused) {
+                this.update();
+            }
+            
+            requestAnimationFrame(() => this.animate());
+        }
+        
+        update() {
+            const deltaTime = 1/60;
+            this.elapsedTime += deltaTime;
+            this.phaseTime += deltaTime / 60;
+            this.worldTime += deltaTime;
+            
+            const currentWorldHour = (this.startHour + (this.worldTime / 3600)) % 24;
+            
+            const schedule = this.customScheduleData || CONFIG.schedules[this.currentSchedule];
+            const currentPhase = schedule[this.schedulePhase];
+            
+            if (this.phaseTime >= currentPhase.duration) {
+                this.schedulePhase = (this.schedulePhase + 1) % schedule.length;
+                this.phaseTime = 0;
+                
+                // PHASE 2: Check if we completed the entire week schedule
+                if (this.schedulePhase === 0 && this.allWeekSchedules && this.allWeekSchedules.length > 1) {
+                    // Week completed - advance to next week
+                    this.currentWeekIndex = (this.currentWeekIndex + 1) % this.allWeekSchedules.length;
+                    this.weeksSimulated++;
+                    
+                    // Load next week's schedule
+                    const nextWeek = this.allWeekSchedules[this.currentWeekIndex];
+                    this.customScheduleData = nextWeek.schedule;
+                    this.startHour = nextWeek.startHour || this.startHour;
+                    this.weekDuration = this.customScheduleData.reduce((sum, phase) => sum + phase.duration, 0);
+                    this.weekStartTime = this.worldTime;
+                    
+                    console.log(`🔄 Week transition: Now simulating Week ${this.currentWeekIndex + 1} (Total weeks: ${this.weeksSimulated})`);
+                }
+            }
+            
+            const isWorking = schedule[this.schedulePhase].type === 'work';
+            
+            // PHASE 2: Track scheduled rest events
+            if (!isWorking && this.schedulePhase !== this.lastSchedulePhase) {
+                this.scheduledRestCount++;
+            }
+            this.lastSchedulePhase = this.schedulePhase;
+            
+            this.workers.forEach(({ body, worker }) => {
+                const result = worker.tick(isWorking, deltaTime, currentWorldHour);
+                const state = result.state;
+                
+                // PHASE 2: Accumulate temporal debt
+                if (result.debtIncurred > 0) {
+                    this.temporalDebt += result.debtIncurred;
+                    this.emergencyShutdownCount++;
+                }
+                
+                const currentVel = body.velocity;
+                const baseSpeed = Math.sqrt(currentVel.x * currentVel.x + currentVel.y * currentVel.y);
+                
+                // Keep minimum speed so workers stay visible
+                const minSpeed = 0.5;
+                const targetSpeed = Math.max(minSpeed, 2 * state.performanceMultiplier);
+                
+                if (baseSpeed > 0.01) {
+                    const scale = targetSpeed / baseSpeed;
+                    Matter.Body.setVelocity(body, {
+                        x: currentVel.x * scale,
+                        y: currentVel.y * scale
+                    });
+                } else {
+                    // If velocity is near zero, give a random kick
+                    Matter.Body.setVelocity(body, {
+                        x: (Math.random() - 0.5) * minSpeed * 2,
+                        y: (Math.random() - 0.5) * minSpeed * 2
+                    });
+                }
+                
+                const jitterMultiplier = state.hasBurnedOut ? 1.5 : 1.0;
+                const jitterAmount = state.fatigue * 2 * jitterMultiplier;
+                Matter.Body.applyForce(body, body.position, {
+                    x: (Math.random() - 0.5) * jitterAmount * 0.0001,
+                    y: (Math.random() - 0.5) * jitterAmount * 0.0001
+                });
+                
+                body.render.fillStyle = CONFIG.colors[state.state];
+            });
+            
+            // PERFORMANCE: Only update UI every N frames (physics still runs at 60fps)
+            this.uiFrameCounter++;
+            if (this.uiFrameCounter % this.uiUpdateEveryNFrames === 0) {
+                this.updateMetrics(currentWorldHour);
+                
+                // PHASE 2: Capture data for export every N seconds
+                const currentSecond = Math.floor(this.worldTime);
+                if (currentSecond % this.dataCaptureInterval === 0 && currentSecond !== this.lastDataCapture) {
+                    this.captureDataPoint(currentWorldHour);
+                    this.lastDataCapture = currentSecond;
+                }
+            }
+        }
+        
+        updateMetrics(currentWorldHour = 8) {
+            const totalSeconds = Math.floor(this.worldTime);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            
+            const displayHour = (this.startHour + hours) % 24;
+            const timeString = `${displayHour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            const dayDisplay = Math.floor(totalSeconds / 86400) + 1;
+            
+            document.getElementById('elapsedTime').textContent = 
+                `${timeString} (Day ${dayDisplay})`;
+            
+            let totalCapacity = 0;
+            let minCapacity = 1;
+            let criticalCount = 0;
+            let shutdownCount = 0;
+            let burnoutCount = 0;
+            
+            this.workers.forEach(({ worker }) => {
+                const state = worker.getState(currentWorldHour);
+                totalCapacity += state.capacity;
+                minCapacity = Math.min(minCapacity, state.capacity);
+                
+                if (state.state === 'critical') criticalCount++;
+                if (state.state === 'shutdown') shutdownCount++;
+                if (state.hasBurnedOut) burnoutCount++;
+            });
+            
+            const avgCapacity = totalCapacity / this.workers.length;
+            
+            document.getElementById('avgCapacity').textContent = 
+                Math.round(avgCapacity * 100) + '%';
+            document.getElementById('minCapacity').textContent = 
+                Math.round(minCapacity * 100) + '%';
+            document.getElementById('criticalCount').textContent = criticalCount;
+            document.getElementById('shutdownCount').textContent = shutdownCount;
+            document.getElementById('burnoutCount').textContent = burnoutCount;
+            
+            const metricsContainer = document.getElementById('workerMetrics');
+            metricsContainer.innerHTML = '';
+            
+            this.workers.forEach(({ worker }) => {
+                const state = worker.getState(currentWorldHour);
+                
+                const card = document.createElement('div');
+                card.className = `worker-metric ${state.state}`;
+                if (state.hasBurnedOut) {
+                    card.classList.add('burned-out');
+                }
+                
+                const resilienceBadgeClass = 
+                    state.resilienceLevel === 'high' ? 'resilience-badge high' :
+                    state.resilienceLevel === 'low' ? 'resilience-badge low' :
+                    'resilience-badge';
+                
+                const burnoutText = state.hasBurnedOut 
+                    ? `<div class="burnout-indicator">⚠️ Burned Out (Max: ${Math.round(state.maxCapacity * 100)}%)</div>`
+                    : '';
+                
+                const circadianPhase = state.circadianAlertness > 0.7 ? 'PEAK' : 
+                                      state.circadianAlertness < 0.3 ? 'TROUGH' : 'MID';
+                const circadianColor = state.circadianAlertness > 0.7 ? '#00ff88' :
+                                      state.circadianAlertness < 0.3 ? '#ff3b30' : '#ff9500';
+                
+                const riskColor = state.accidentRisk > 0.5 ? '#ff3b30' :
+                                 state.accidentRisk > 0.3 ? '#ff9500' : '#888';
+                
+                card.innerHTML = `
+                    <h4>
+                        ${state.id}
+                        <span class="${resilienceBadgeClass}">${state.resilienceLevel.toUpperCase()}</span>
+                    </h4>
+                    <div class="value">${Math.round(state.capacity * 100)}%</div>
+                    <div class="label">${state.state.toUpperCase()}</div>
+                    <div class="performance">Performance: ${Math.round(state.performanceMultiplier * 100)}%</div>
+                    <div class="label" style="color: ${riskColor}; margin-top: 5px;">
+                        Risk: ${Math.round(state.accidentRisk * 100)}% | Error: ${Math.round(state.errorProb * 100)}%
+                    </div>
+                    <div class="performance" style="color: ${circadianColor};">
+                        Circadian: ${circadianPhase}
+                    </div>
+                    ${burnoutText}
+                `;
+                
+                metricsContainer.appendChild(card);
+            });
+            
+            // PHASE 2: Update temporal debt display
+            this.updateDebtDisplay();
+        }
+        
+        updateDebtDisplay() {
+            // Update debt value
+            const debtValue = document.getElementById('debtValue');
+            debtValue.textContent = this.temporalDebt.toFixed(1) + 's';
+            
+            // Update debt status color and class
+            const debtStatus = document.getElementById('debtStatus');
+            const statusIndicator = debtStatus.querySelector('.status-indicator');
+            const statusDescription = debtStatus.querySelector('.status-description');
+            
+            // Remove all status classes
+            debtValue.classList.remove('warning', 'critical');
+            statusIndicator.classList.remove('optimal', 'acceptable', 'warning', 'critical');
+            
+            if (this.temporalDebt < 5) {
+                // Optimal: < 5s
+                statusIndicator.classList.add('optimal');
+                statusIndicator.textContent = '✓ OPTIMAL';
+                statusDescription.textContent = 'System aligned with biological constraints';
+            } else if (this.temporalDebt < 10) {
+                // Acceptable: 5-10s
+                debtValue.classList.add('warning');
+                statusIndicator.classList.add('acceptable');
+                statusIndicator.textContent = '~ ACCEPTABLE';
+                statusDescription.textContent = 'Minor misalignment, within recovery range';
+            } else if (this.temporalDebt < 20) {
+                // Warning: 10-20s
+                debtValue.classList.add('warning');
+                statusIndicator.classList.add('warning');
+                statusIndicator.textContent = '⚠ MISALIGNED';
+                statusDescription.textContent = 'Significant biological debt accumulating';
+            } else {
+                // Critical: > 20s
+                debtValue.classList.add('critical');
+                statusIndicator.classList.add('critical');
+                statusIndicator.textContent = '🚨 CATASTROPHIC';
+                statusDescription.textContent = 'Permanent capacity damage occurring';
+            }
+            
+            // Update breakdown metrics
+            document.getElementById('emergencyCount').textContent = this.emergencyShutdownCount;
+            document.getElementById('scheduledRestCount').textContent = this.scheduledRestCount;
+            document.getElementById('currentWeek').textContent = this.currentWeekIndex + 1;
+            document.getElementById('weeksSimulated').textContent = this.weeksSimulated;
+        }
+        
+        captureDataPoint(currentWorldHour) {
+            // Calculate metrics at this moment
+            let totalCapacity = 0;
+            let minCapacity = 1;
+            let criticalCount = 0;
+            
+            this.workers.forEach(({ worker }) => {
+                const state = worker.getState(currentWorldHour);
+                totalCapacity += state.capacity;
+                minCapacity = Math.min(minCapacity, state.capacity);
+                if (state.state === 'critical' || state.state === 'shutdown') criticalCount++;
+            });
+            
+            const avgCapacity = totalCapacity / this.workers.length;
+            
+            this.runData.push({
+                time: Math.floor(this.worldTime),
+                debt: parseFloat(this.temporalDebt.toFixed(1)),
+                avgCapacity: Math.round(avgCapacity * 100),
+                minCapacity: Math.round(minCapacity * 100),
+                criticalCount: criticalCount,
+                emergencyCount: this.emergencyShutdownCount,
+                week: this.currentWeekIndex + 1
+            });
+        }
+        
+        exportRunData() {
+            if (this.runData.length === 0) {
+                alert('No data to export. Start a simulation first!');
+                return;
+            }
+            
+            // Generate CSV
+            const headers = 'Time (s),Temporal Debt (s),Avg Capacity (%),Min Capacity (%),Critical Workers,Emergency Shutdowns,Week\n';
+            const rows = this.runData.map(d => 
+                `${d.time},${d.debt},${d.avgCapacity},${d.minCapacity},${d.criticalCount},${d.emergencyCount},${d.week}`
+            ).join('\n');
+            
+            const csv = headers + rows;
+            
+            // Create download
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            // Filename with timestamp and schedule type
+            const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+            const scheduleType = this.currentSchedule === 'custom' ? 'custom' : this.currentSchedule;
+            a.download = `eara-run-${scheduleType}-${timestamp}.csv`;
+            
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            console.log(`📊 Exported ${this.runData.length} data points`);
+        }
+    }
+
+    // ========================================================================
+    // INITIALIZE SIMULATION
+    // ========================================================================
+
+    let simulation;
+    
+    window.addEventListener('DOMContentLoaded', () => {
+        simulation = new EARASimulation();
+    });
+    </script>
+</body>
+</html>
