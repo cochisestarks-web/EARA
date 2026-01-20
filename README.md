@@ -1,7 +1,7 @@
 # EARA Core v0.4 - Employee Activity Rhythm Analyzer
 Physiological labor capacity simulation proving biological constraints are binding.
 
-[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://earacircadianvalidation.starksukraine.workers.dev/)
+[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://cochisestarks-web.github.io/EARA/)
 [![Status](https://img.shields.io/badge/status-validated-blue)]()
 [![Research](https://img.shields.io/badge/research-Darwish%202023-orange)]()
 
