@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EARA — Employee Adaptive Resource Allocation</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Newsreader:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #0f0e0c;
+    --paper: #f5f0e8;
+    --accent: #c0392b;
+    --muted: #6b6560;
+    --rule: #d4cec4;
+    --highlight: #e8f4f0;
+  }
+
+  @media print {
+    body { background: white; }
+    .page { box-shadow: none; max-width: 100%; padding: 1.5cm 2cm; }
+  }
+
+  body {
+    background: #e8e2d6;
+    font-family: 'Newsreader', Georgia, serif;
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 2rem 1rem;
+  }
+
+  .page {
+    background: var(--paper);
+    max-width: 760px;
+    width: 100%;
+    padding: 3rem 3.5rem;
+    box-shadow: 0 4px 40px rgba(0,0,0,0.18), 0 1px 4px rgba(0,0,0,0.08);
+    position: relative;
+  }
+
+  /* Decorative top rule */
+  .page::before {
+    content: '';
+    display: block;
+    height: 4px;
+    background: var(--accent);
+    position: absolute;
+    top: 0; left: 0; right: 0;
+  }
+
+  /* Header */
+  .header {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: start;
+    gap: 1rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1.5px solid var(--ink);
+    margin-bottom: 1.5rem;
+  }
+
+  .label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.4rem;
+  }
+
+  h1 {
+    font-family: 'DM Serif Display', Georgia, serif;
+    font-size: 2.1rem;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    font-weight: 400;
+  }
+
+  h1 em {
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .header-meta {
+    text-align: right;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted);
+    line-height: 1.8;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  .subtitle {
+    font-size: 1rem;
+    color: var(--muted);
+    font-style: italic;
+    margin-top: 0.35rem;
+    font-weight: 300;
+    line-height: 1.5;
+  }
+
+  /* Lead paragraph */
+  .lead {
+    font-size: 1.05rem;
+    line-height: 1.75;
+    margin-bottom: 1.5rem;
+    color: var(--ink);
+  }
+
+  .lead strong {
+    font-weight: 400;
+    border-bottom: 1.5px solid var(--accent);
+  }
+
+  /* Section headings */
+  h2 {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.6rem;
+    margin-top: 1.5rem;
+  }
+
+  /* Two column layout */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-bottom: 1.5rem;
+  }
+
+  p {
+    font-size: 0.88rem;
+    line-height: 1.72;
+    color: var(--ink);
+  }
+
+  /* Gamma formula box */
+  .formula-box {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 1.25rem 1.5rem;
+    margin: 1.5rem 0;
+    position: relative;
+  }
+
+  .formula-box .formula-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+  }
+
+  .formula-main {
+    font-family: 'DM Mono', monospace;
+    font-size: 1.1rem;
+    color: #f5f0e8;
+    margin-bottom: 0.75rem;
+    letter-spacing: 0.02em;
+  }
+
+  .formula-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem 1.5rem;
+    margin-top: 0.5rem;
+  }
+
+  .formula-item {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    color: #b8b0a4;
+    letter-spacing: 0.04em;
+    line-height: 1.5;
+  }
+
+  .formula-item span {
+    color: #f5f0e8;
+  }
+
+  /* Threshold bar */
+  .threshold-section {
+    margin: 1.5rem 0;
+  }
+
+  .threshold-bar {
+    display: flex;
+    height: 8px;
+    border-radius: 0;
+    overflow: hidden;
+    margin: 0.5rem 0 0.3rem;
+  }
+
+  .bar-seg {
+    flex: 1;
+  }
+  .bar-seg-1 { background: #2ecc71; flex: 0.3; }
+  .bar-seg-2 { background: #f39c12; flex: 0.4; }
+  .bar-seg-3 { background: #e67e22; flex: 0.3; }
+  .bar-seg-4 { background: var(--accent); flex: 0.3; }
+
+  .threshold-labels {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.55rem;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  /* Oasis box */
+  .oasis-box {
+    border: 1.5px solid var(--ink);
+    padding: 1rem 1.25rem;
+    margin: 1.5rem 0;
+    position: relative;
+  }
+
+  .oasis-box::before {
+    content: 'FIELD DISCOVERY';
+    position: absolute;
+    top: -0.5rem;
+    left: 1rem;
+    background: var(--paper);
+    padding: 0 0.5rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+  }
+
+  .oasis-box p {
+    font-size: 0.85rem;
+  }
+
+  /* Validation row */
+  .validation-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin: 1.25rem 0;
+    padding: 1rem;
+    background: var(--highlight);
+    border-left: 3px solid #2ecc71;
+  }
+
+  .stat-block {
+    text-align: center;
+  }
+
+  .stat-num {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.6rem;
+    color: var(--ink);
+    display: block;
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.55rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-top: 0.3rem;
+    display: block;
+    line-height: 1.4;
+  }
+
+  /* Footer */
+  .footer {
+    margin-top: 1.75rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--rule);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: end;
+    gap: 1rem;
+  }
+
+  .footer-links {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    line-height: 2;
+  }
+
+  .footer-links a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  .cta {
+    font-family: 'DM Serif Display', serif;
+    font-size: 0.85rem;
+    font-style: italic;
+    color: var(--muted);
+    text-align: right;
+    line-height: 1.5;
+    max-width: 200px;
+  }
+
+  hr.section-rule {
+    border: none;
+    border-top: 1px solid var(--rule);
+    margin: 1.25rem 0;
+  }
+
+  @media (max-width: 600px) {
+    .page { padding: 2rem 1.5rem; }
+    .two-col, .formula-grid, .validation-row { grid-template-columns: 1fr; }
+    .header { grid-template-columns: 1fr; }
+    .header-meta { text-align: left; }
+    .footer { grid-template-columns: 1fr; }
+    .cta { text-align: left; max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <div>
+      <div class="label">Technical Overview · Phase 1.5</div>
+      <h1>EARA — <em>The Chrono-Tax</em></h1>
+      <div class="subtitle">What the economic squeeze costs the human body — measured, modeled, validated.</div>
+    </div>
+    <div class="header-meta">
+      DEREK LOA<br>
+      Independent Researcher<br>
+      github.com/cochisestarks-web/EARA<br>
+      CC BY 4.0 · April 2026
+    </div>
+  </div>
+
+  <p class="lead">
+    Asset-stripping isn't only financial. Every schedule that forces a worker through a circadian trough, cuts recovery time, or sequences shifts to maximize hours also extracts something that doesn't appear in any productivity dashboard: <strong>biological capacity</strong>. EARA makes that extraction measurable.
+  </p>
+
+  <div class="two-col">
+    <div>
+      <h2>The Problem</h2>
+      <p>Standard workforce analytics assume 100% biological capacity per hour worked. They cannot see fatigue accumulation, circadian misalignment, or the compounding cost of shift sequencing. The result: productivity ceilings that look like worker underperformance are actually biological debt made invisible by the model doing the measuring.</p>
+    </div>
+    <div>
+      <h2>The Framework</h2>
+      <p>EARA (Employee Adaptive Resource Allocation) introduces γ (gamma) — a dimensionless biological debt index grounded in Borbély's two-process sleep model and Enoka's neuromechanical fatigue accumulation. γ runs 0 to 1.0 and converts directly into BCI: Biological Capacity Index = (1 − γ).</p>
+    </div>
+  </div>
+
+  <div class="formula-box">
+    <div class="formula-label">Core Formula — γ-debt</div>
+    <div class="formula-main">γ_debt(t) = Σ [ α · S(t) + β · C_penalty(t) ]</div>
+    <div class="formula-grid">
+      <div class="formula-item"><span>α = 0.6</span> — homeostatic sleep pressure weight (Process S)</div>
+      <div class="formula-item"><span>β = 0.4</span> — circadian misalignment penalty weight (Process C)</div>
+      <div class="formula-item"><span>S(t)</span> — Borbély Process S value at shift end</div>
+      <div class="formula-item"><span>C_penalty</span> — circadian trough exposure, capped at 6-hr ceiling</div>
+    </div>
+  </div>
+
+  <div class="threshold-section">
+    <h2>γ Thresholds</h2>
+    <div class="threshold-bar">
+      <div class="bar-seg bar-seg-1"></div>
+      <div class="bar-seg bar-seg-2"></div>
+      <div class="bar-seg bar-seg-3"></div>
+      <div class="bar-seg bar-seg-4"></div>
+    </div>
+    <div class="threshold-labels">
+      <span>0.0 — No debt</span>
+      <span>0.3 — Optimal ceiling</span>
+      <span>0.7 — Biological ceiling</span>
+      <span>1.0 — Shutdown</span>
+    </div>
+  </div>
+
+  <hr class="section-rule">
+
+  <h2>Empirical Validation — WESAD Dataset (Schmidt et al., 2018 · N=15)</h2>
+  <div class="validation-row">
+    <div class="stat-block">
+      <span class="stat-num">r = .535</span>
+      <span class="stat-label">γ-debt vs. HRV<br>p &lt; .001</span>
+    </div>
+    <div class="stat-block">
+      <span class="stat-num">r = .539</span>
+      <span class="stat-label">γ-debt vs. Fatigue<br>p &lt; .001</span>
+    </div>
+    <div class="stat-block">
+      <span class="stat-num">3×</span>
+      <span class="stat-label">γ-debt outperforms<br>shift duration alone</span>
+    </div>
+  </div>
+  <p style="font-size:0.78rem; color:var(--muted); font-style:italic;">Van Dongen sleep restriction alignment: r = 0.999 across 4h / 6h / 8h conditions. Scripts open-source at GitHub (CC BY 4.0).</p>
+
+  <div class="oasis-box">
+    <p><strong>The Oasis Discovery.</strong> Retail workforce management system Oasis has two structural blind spots: it assumes 100% biological capacity per scheduled hour (cannot see Ghost Hours), and it counts managerial overhead as floor-productive labor — "headcount laundering." Field observation: 85–90% productivity ceiling despite under-scheduling. EARA's BCI formula — <em>Adjusted Productivity = Output × (1 − γ)</em> — converts this from theoretical critique into a live diagnostic tool.</p>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <h2>Beyond Retail — The Chrono-Tax Audit</h2>
+      <p>EARA is a rinse-and-repeat methodology. Retail scheduling is Case Study #1. The same extraction logic applies to insurance-denial cycles, benefits-bureaucracy delays, gig-economy schedule fragmentation, and criminal-justice scheduling — any system that strips biological recovery time as a structural feature.</p>
+    </div>
+    <div>
+      <h2>What I'm Looking For</h2>
+      <p>Peer critique of the γ formula and weighting coefficients. Chronobiology literature that either strengthens or challenges the C_penalty ceiling. Dataset access for Phase 2 validation (MMASH identified). Researchers or journalists who want to put the framework to work on a case study.</p>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-links">
+      Live simulation · <a href="https://cochisestarks-web.github.io/EARA/">cochisestarks-web.github.io/EARA</a><br>
+      GitHub · <a href="https://github.com/cochisestarks-web/EARA">github.com/cochisestarks-web/EARA</a><br>
+      License · CC BY 4.0 — use it, cite it, build on it.
+    </div>
+    <div class="cta">
+      "The schedule steals the neurological conditions for human connection."<br>
+      — EARA, Phase 1.5
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
